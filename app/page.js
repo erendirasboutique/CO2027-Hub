@@ -98,7 +98,7 @@ function AuthScreen() {
         <h1>
           ASB <em>Class of &apos;27</em>
         </h1>
-        <div className="subline">Sign in to your crew HQ.</div>
+        <div className="subline">Class of 2027 HQ.</div>
 
         <label className="fld">
           <span>Email</span>
@@ -532,7 +532,7 @@ export default function Page() {
         )}
       </main>
 
-      <footer>Class of 2027 · Jurupa Hills High School · Built for the ASB crew.</footer>
+      <footer>Class of 2027 · Jurupa Hills High School · Built by Dylan.</footer>
 
       {/* modals */}
       {modal?.kind === "eventEditor" && (
