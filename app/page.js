@@ -130,7 +130,7 @@ function AuthScreen() {
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
-        <div className="auth-toggle">Accounts are invite-only — ask your ASB admin for a login.</div>
+        <div className="auth-toggle">Accounts are invite-only.</div>
       </div>
     </div>
   );
