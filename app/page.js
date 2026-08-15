@@ -98,7 +98,7 @@ function AuthScreen() {
         <h1>
           ASB <em>Class of &apos;27</em>
         </h1>
-        <div className="subline">Class of 2027 HQ.</div>
+        <div className="subline">Sign in to your crew HQ.</div>
 
         <label className="fld">
           <span>Email</span>
@@ -130,7 +130,7 @@ function AuthScreen() {
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
-        <div className="auth-toggle">Accounts are invite-only.</div>
+        <div className="auth-toggle">Accounts are invite-only — ask your ASB admin for a login.</div>
       </div>
     </div>
   );
@@ -201,7 +201,7 @@ export default function Page() {
     const jobsData = (jb.data || []).map((j) => ({
       ...j,
       members: jmByJob[j.id] || [],
-      notes: notesByJob[j.id] || [],
+      thread: notesByJob[j.id] || [],
     }));
 
     const claimByItem = {};
@@ -532,7 +532,7 @@ export default function Page() {
         )}
       </main>
 
-      <footer>Class of 2027 · Jurupa Hills High School · Built by Dylan.</footer>
+      <footer>Class of 2027 · Jurupa Hills High School · Built for the ASB crew.</footer>
 
       {/* modals */}
       {modal?.kind === "eventEditor" && (
@@ -733,7 +733,7 @@ function JobCardMini({ job, onOpen }) {
       </div>
       <div className="jbody">
         <div className="jname">{job.title}</div>
-        <div className="jmeta">{(job.notes && job.notes.length) ? "Has notes" : "Tap to open"}</div>
+        <div className="jmeta">{(job.thread && job.thread.length) ? "Has notes" : "Tap to open"}</div>
       </div>
     </div>
   );
@@ -1002,7 +1002,7 @@ function JobsView({ jobs, isAdmin, memberById, onAdd, onOpen }) {
     <div>
       <div className="view-head">
         <h2>
-          <span className="pennant" /> Jobs
+          <span className="pennant" /> Spirit-week jobs
         </h2>
         <div className="spacer" />
         {isAdmin && (
@@ -1017,7 +1017,7 @@ function JobsView({ jobs, isAdmin, memberById, onAdd, onOpen }) {
           <div>
             {isAdmin
               ? "Add a job like posters or window painting, attach a reference, and assign the crew."
-              : "Jobs like posters, activities, windows will show up here."}
+              : "Jobs like posters and windows will show up here."}
           </div>
         </div>
       ) : (
@@ -1050,8 +1050,7 @@ function JobsView({ jobs, isAdmin, memberById, onAdd, onOpen }) {
                     ) : (
                       <span>Unassigned</span>
                     )}
-                    {j.notes_count ? null : null}
-                    <span>· {(j.notes || []).length} notes</span>
+                    <span>· {(j.thread || []).length} notes</span>
                   </div>
                 </div>
               </div>
@@ -2015,7 +2014,7 @@ function JobDetail({ job, me, isAdmin, memberById, onClose, onEdit, onAddNote, o
   }
 
   const mem = (job.members || []).map(memberById).filter(Boolean);
-  const notes = job.notes || [];
+  const notes = Array.isArray(job.thread) ? job.thread : [];
 
   async function submitNote() {
     if (!draft.trim()) return;
@@ -2041,7 +2040,7 @@ function JobDetail({ job, me, isAdmin, memberById, onClose, onEdit, onAddNote, o
   return (
     <Modal title={job.title} onClose={onClose} foot={foot}>
       {job.image_url && <img className="job-image" src={job.image_url} alt="" />}
-      {job.notes && (
+      {typeof job.notes === "string" && job.notes.trim() && (
         <p style={{ background: "#fff", border: "1.5px solid var(--line)", borderRadius: 12, padding: "12px 14px", fontSize: 14.5, whiteSpace: "pre-wrap" }}>
           {job.notes}
         </p>
