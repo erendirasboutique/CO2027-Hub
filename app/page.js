@@ -1002,7 +1002,7 @@ function JobsView({ jobs, isAdmin, memberById, onAdd, onOpen }) {
     <div>
       <div className="view-head">
         <h2>
-          <span className="pennant" /> Spirit-week jobs
+          <span className="pennant" /> Jobs
         </h2>
         <div className="spacer" />
         {isAdmin && (
@@ -1017,7 +1017,7 @@ function JobsView({ jobs, isAdmin, memberById, onAdd, onOpen }) {
           <div>
             {isAdmin
               ? "Add a job like posters or window painting, attach a reference, and assign the crew."
-              : "Jobs like posters and windows will show up here."}
+              : "Jobs like posters, activities, windows will show up here."}
           </div>
         </div>
       ) : (
