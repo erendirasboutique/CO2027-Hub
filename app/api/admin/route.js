@@ -1,6 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Run on the Node.js runtime (needs Buffer for image decoding).
 export const runtime = "nodejs";
 
 function json(obj, status = 200) {
@@ -10,12 +9,28 @@ function json(obj, status = 200) {
   });
 }
 
-// Admin client uses the SECRET service-role key and bypasses row-level security.
-// It only ever runs on the server, never in the browser.
-function adminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  return createClient(url, key, { auth: { persistSession: false } });
+function serviceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false } }
+  );
+}
+
+// Confirm the caller is signed in AND is an admin, using their access token.
+async function requireAdmin(req, db) {
+  const authHeader = req.headers.get("authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return { error: "Not signed in", status: 401 };
+  const { data: userData, error } = await db.auth.getUser(token);
+  if (error || !userData?.user) return { error: "Not signed in", status: 401 };
+  const { data: me } = await db
+    .from("members")
+    .select("id, is_admin")
+    .eq("auth_user_id", userData.user.id)
+    .single();
+  if (!me?.is_admin) return { error: "Admins only", status: 403 };
+  return { ok: true };
 }
 
 export async function POST(req) {
@@ -26,37 +41,71 @@ export async function POST(req) {
     return json({ error: "Bad request" }, 400);
   }
 
-  const code = process.env.OFFICER_CODE;
-  if (!code) {
-    return json({ error: "Server isn't configured yet: set OFFICER_CODE in Vercel." }, 500);
-  }
-  if (!body || body.code !== code) {
-    return json({ error: "That passcode didn't match." }, 401);
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return json({ error: "Server isn't configured: set SUPABASE_SERVICE_ROLE_KEY in Vercel." }, 500);
   }
 
-  const db = adminClient();
+  const db = serviceClient();
+  const gate = await requireAdmin(req, db);
+  if (gate.error) return json({ error: gate.error }, gate.status);
+
   const { op, data } = body;
-
   try {
     switch (op) {
-      case "verify":
-        return json({ ok: true });
-
-      case "saveEvent":
-        return json(await saveEvent(db, data));
-
-      case "deleteEvent": {
-        const { error } = await db.from("events").delete().eq("id", data.id);
-        if (error) throw error;
+      case "inviteMember": {
+        const email = (data.email || "").trim().toLowerCase();
+        const name = (data.name || "").trim();
+        const password = data.tempPassword || "";
+        if (!email || !name || !password) {
+          return json({ error: "Name, email, and a temporary password are all required." }, 400);
+        }
+        if (password.length < 6) {
+          return json({ error: "Temporary password must be at least 6 characters." }, 400);
+        }
+        const { error } = await db.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { name },
+        });
+        if (error) {
+          const msg = /already/i.test(error.message)
+            ? "Someone with that email already has an account."
+            : error.message;
+          return json({ error: msg }, 400);
+        }
         return json({ ok: true });
       }
 
-      case "saveMember":
-        return json(await saveMember(db, data));
+      case "resetPassword": {
+        const { data: m } = await db
+          .from("members")
+          .select("auth_user_id")
+          .eq("id", data.memberId)
+          .single();
+        if (!m?.auth_user_id) return json({ error: "That member has no login to reset." }, 400);
+        if (!data.newPassword || data.newPassword.length < 6) {
+          return json({ error: "New password must be at least 6 characters." }, 400);
+        }
+        const { error } = await db.auth.admin.updateUserById(m.auth_user_id, {
+          password: data.newPassword,
+        });
+        if (error) return json({ error: error.message }, 400);
+        return json({ ok: true });
+      }
 
-      case "deleteMember": {
-        const { error } = await db.from("members").delete().eq("id", data.id);
-        if (error) throw error;
+      case "removeMember": {
+        const { data: m } = await db
+          .from("members")
+          .select("auth_user_id")
+          .eq("id", data.memberId)
+          .single();
+        if (m?.auth_user_id) {
+          const { error } = await db.auth.admin.deleteUser(m.auth_user_id);
+          if (error) return json({ error: error.message }, 400);
+        } else {
+          await db.from("members").delete().eq("id", data.memberId);
+        }
         return json({ ok: true });
       }
 
@@ -66,71 +115,4 @@ export async function POST(req) {
   } catch (e) {
     return json({ error: e.message || "Server error" }, 500);
   }
-}
-
-async function saveEvent(db, d) {
-  const payload = {
-    title: d.title,
-    date: d.date,
-    time: d.time || "",
-    type: d.type || "other",
-    location: d.location || "",
-    notes: d.notes || "",
-  };
-  let id = d.id;
-  if (id) {
-    const { error } = await db.from("events").update(payload).eq("id", id);
-    if (error) throw error;
-  } else {
-    const { data: row, error } = await db.from("events").insert(payload).select().single();
-    if (error) throw error;
-    id = row.id;
-  }
-  // Reset assignments to match the current selection.
-  await db.from("assignments").delete().eq("event_id", id);
-  const rows = (d.memberIds || []).map((mid) => ({ event_id: id, member_id: mid }));
-  if (rows.length) {
-    const { error } = await db.from("assignments").insert(rows);
-    if (error) throw error;
-  }
-  return { id };
-}
-
-async function saveMember(db, d) {
-  let id = d.id;
-  const base = { name: d.name, role: d.role || "", bio: d.bio || "" };
-  if (id) {
-    const { error } = await db.from("members").update(base).eq("id", id);
-    if (error) throw error;
-  } else {
-    const { data: row, error } = await db.from("members").insert(base).select().single();
-    if (error) throw error;
-    id = row.id;
-  }
-
-  if (d.imageDataUrl) {
-    const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(d.imageDataUrl);
-    if (match) {
-      const contentType = match[1];
-      const buf = Buffer.from(match[2], "base64");
-      const ext = contentType.includes("webp")
-        ? "webp"
-        : contentType.includes("png")
-        ? "png"
-        : "jpg";
-      const path = `${id}/${Date.now()}.${ext}`;
-      const { error: upErr } = await db.storage
-        .from("avatars")
-        .upload(path, buf, { contentType, upsert: true });
-      if (upErr) throw upErr;
-      const { data: pub } = db.storage.from("avatars").getPublicUrl(path);
-      const { error } = await db.from("members").update({ photo_url: pub.publicUrl }).eq("id", id);
-      if (error) throw error;
-    }
-  } else if (d.removePhoto) {
-    const { error } = await db.from("members").update({ photo_url: "" }).eq("id", id);
-    if (error) throw error;
-  }
-
-  return { id };
 }
