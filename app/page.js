@@ -61,6 +61,52 @@ function relTime(iso) {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+// "9:00 AM – 11:00 AM", or a single time, or "".
+function timeLabel(e) {
+  const a = e.time ? formatTime(e.time) : "";
+  const b = e.end_time ? formatTime(e.end_time) : "";
+  if (a && b) return a + " – " + b;
+  return a || b || "";
+}
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+// Open a clean printable page in a new tab and trigger the print dialog.
+function printDoc(title, innerHtml) {
+  const w = window.open("", "_blank", "width=820,height=1000");
+  if (!w) {
+    alert("Please allow pop-ups for this site to print.");
+    return;
+  }
+  w.document.write(
+    '<!doctype html><html><head><meta charset="utf-8"><title>' +
+      esc(title) +
+      '</title><style>' +
+      "*{box-sizing:border-box;font-family:Georgia,'Times New Roman',serif;color:#2b1f2a;}" +
+      "body{margin:36px;}h1{font-size:26px;margin:0 0 2px;}" +
+      ".sub{color:#6b5f68;margin:0 0 20px;font-size:13px;}" +
+      "h2{font-size:15px;margin:22px 0 8px;border-bottom:2px solid #ff66c4;padding-bottom:5px;}" +
+      "table{width:100%;border-collapse:collapse;margin-bottom:14px;}" +
+      "td,th{text-align:left;padding:8px 10px;border-bottom:1px solid #e5ded9;font-size:13px;vertical-align:top;}" +
+      "th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#6b5f68;}" +
+      ".muted{color:#8a7f86;}.line{border-bottom:1px solid #806a52;display:inline-block;min-width:150px;}" +
+      "p{font-size:14px;line-height:1.5;}ul{font-size:14px;}" +
+      "@media print{body{margin:.5in;}}" +
+      "</style></head><body>" +
+      innerHtml +
+      "</body></html>"
+  );
+  w.document.close();
+  w.focus();
+  setTimeout(function () {
+    try {
+      w.print();
+    } catch (e) {}
+  }, 350);
+}
+
 /* ================================================================== */
 /* Auth screen (sign in only — accounts are invite-only)              */
 /* ================================================================== */
@@ -433,7 +479,7 @@ export default function Page() {
             ["events", "Events"],
             ["roster", "Roster"],
             ["jobs", "Jobs"],
-            ["shopping", "Shopping"],
+            ["donations", "Donations"],
           ].map(([id, label]) => (
             <button
               key={id}
@@ -476,7 +522,7 @@ export default function Page() {
             myItems={shopping.filter((it) => it.claim && it.claim.member_id === me.id)}
             onOpenEvent={(id) => setModal({ kind: "eventDetail", id })}
             onOpenJob={(id) => setModal({ kind: "jobDetail", id })}
-            goShopping={() => setView("shopping")}
+            goShopping={() => setView("donations")}
           />
         )}
         {view === "calendar" && (
@@ -517,8 +563,8 @@ export default function Page() {
             onOpen={(id) => setModal({ kind: "jobDetail", id })}
           />
         )}
-        {view === "shopping" && (
-          <ShoppingView
+        {view === "donations" && (
+          <DonationsView
             shopping={shopping}
             me={me}
             isAdmin={isAdmin}
@@ -526,8 +572,8 @@ export default function Page() {
             onClaim={claimItem}
             onUnclaim={unclaimItem}
             onClear={adminClearClaim}
-            onAdd={() => setModal({ kind: "shopEditor", item: null })}
-            onEdit={(it) => setModal({ kind: "shopEditor", item: it })}
+            onAdd={() => setModal({ kind: "donationEditor", item: null })}
+            onEdit={(it) => setModal({ kind: "donationEditor", item: it })}
           />
         )}
       </main>
@@ -613,8 +659,8 @@ export default function Page() {
           onOpenMember={(id) => setModal({ kind: "memberDetail", id })}
         />
       )}
-      {modal?.kind === "shopEditor" && (
-        <ShopEditor item={modal.item} onClose={() => setModal(null)} onSaved={onSaved} />
+      {modal?.kind === "donationEditor" && (
+        <DonationsEditor item={modal.item} onClose={() => setModal(null)} onSaved={onSaved} />
       )}
 
       <div className={"toast" + (toastMsg ? " show" : "")}>{toastMsg}</div>
@@ -675,7 +721,7 @@ function HomeView({ me, isAdmin, myEvents, myJobs, myItems, onOpenEvent, onOpenJ
                       <span className="type-tag" style={{ background: t.color }}>
                         {t.label}
                       </span>
-                      {e.time && <span>🕒 {formatTime(e.time)}</span>}
+                      {timeLabel(e) && <span>🕒 {timeLabel(e)}</span>}
                       {e.location && <span>📍 {e.location}</span>}
                     </div>
                   </div>
@@ -879,7 +925,7 @@ function EventCard({ event, memberById, isAdmin, onOpen, onEdit }) {
           <span className="type-tag" style={{ background: t.color }}>
             {t.label}
           </span>
-          {event.time && <span>🕒 {formatTime(event.time)}</span>}
+          {timeLabel(event) && <span>🕒 {timeLabel(event)}</span>}
           {event.location && <span>📍 {event.location}</span>}
         </div>
         {mem.length > 0 && (
@@ -1002,7 +1048,7 @@ function JobsView({ jobs, isAdmin, memberById, onAdd, onOpen }) {
     <div>
       <div className="view-head">
         <h2>
-          <span className="pennant" /> Spirit-week jobs
+          <span className="pennant" /> Jobs
         </h2>
         <div className="spacer" />
         {isAdmin && (
@@ -1016,7 +1062,7 @@ function JobsView({ jobs, isAdmin, memberById, onAdd, onOpen }) {
           <div className="big">No jobs yet</div>
           <div>
             {isAdmin
-              ? "Add a job like posters or window painting, attach a reference, and assign the crew."
+              ? "Add a job (posters, windows, setup…), attach a reference, and assign the crew."
               : "Jobs like posters and windows will show up here."}
           </div>
         </div>
@@ -1063,9 +1109,9 @@ function JobsView({ jobs, isAdmin, memberById, onAdd, onOpen }) {
 }
 
 /* ================================================================== */
-/* Shopping                                                            */
+/* Donations                                                           */
 /* ================================================================== */
-function ShoppingView({ shopping, me, isAdmin, memberById, onClaim, onUnclaim, onClear, onAdd, onEdit }) {
+function DonationsView({ shopping, me, isAdmin, memberById, onClaim, onUnclaim, onClear, onAdd, onEdit }) {
   const groups = useMemo(() => {
     const g = {};
     shopping.forEach((it) => {
@@ -1076,13 +1122,34 @@ function ShoppingView({ shopping, me, isAdmin, memberById, onClaim, onUnclaim, o
   }, [shopping]);
   const cats = Object.keys(groups);
 
+  function printList() {
+    let html = "<h1>Donations Sign Up</h1><p class=\"sub\">ASB · Class of 2027</p>";
+    cats.forEach((cat) => {
+      html += "<h2>" + esc(cat) + "</h2><table><tr><th>Item</th><th>Amount</th><th>Note</th><th>Bringing</th></tr>";
+      groups[cat].forEach((it) => {
+        const who = it.claim ? memberById(it.claim.member_id) : null;
+        html +=
+          "<tr><td>" + esc(it.name) + "</td><td>" + esc(it.qty || "") + "</td><td>" +
+          esc(it.note || "") + "</td><td>" +
+          (who ? esc(who.name) : '<span class="line">&nbsp;</span>') + "</td></tr>";
+      });
+      html += "</table>";
+    });
+    printDoc("Donations Sign Up", html);
+  }
+
   return (
     <div>
       <div className="view-head">
         <h2>
-          <span className="pennant" /> Shopping list
+          <span className="pennant" /> Donations Sign Up
         </h2>
         <div className="spacer" />
+        {shopping.length > 0 && (
+          <button className="btn ghost small" onClick={printList}>
+            Print
+          </button>
+        )}
         {isAdmin && (
           <button className="btn primary" onClick={onAdd}>
             + Add item
@@ -1094,8 +1161,8 @@ function ShoppingView({ shopping, me, isAdmin, memberById, onClaim, onUnclaim, o
           <div className="big">Nothing on the list yet</div>
           <div>
             {isAdmin
-              ? "Add what you need for the next club fair — crew members can sign up to bring each item."
-              : "Items to bring will show up here for you to claim."}
+              ? "Add what's needed for the next club fair — crew members can sign up to bring each item."
+              : "Items to bring will show up here for you to sign up."}
           </div>
         </div>
       ) : (
@@ -1110,10 +1177,23 @@ function ShoppingView({ shopping, me, isAdmin, memberById, onClaim, onUnclaim, o
                 const mine = it.claim && it.claim.member_id === me.id;
                 return (
                   <div className={"sitem" + (mine ? " mine" : "")} key={it.id}>
+                    {it.image_url && (
+                      <img
+                        className="sthumb"
+                        src={it.image_url}
+                        alt=""
+                        onClick={() => window.open(it.image_url, "_blank")}
+                      />
+                    )}
                     <div className="sinfo">
                       <div className="sname">{it.name}</div>
                       {it.qty && <div className="sqty">{it.qty}</div>}
                       {it.note && <div className="snote">{it.note}</div>}
+                      {it.link && (
+                        <a className="slink" href={it.link} target="_blank" rel="noreferrer">
+                          🔗 View product
+                        </a>
+                      )}
                     </div>
                     <div className="sclaim">
                       {it.claim ? (
@@ -1200,12 +1280,31 @@ function EventEditor({ event, prefillDate, members, onClose, onSaved }) {
   const [title, setTitle] = useState(event?.title || "");
   const [date, setDate] = useState(event?.date || prefillDate || todayYMD());
   const [time, setTime] = useState(event?.time || "");
+  const [endTime, setEndTime] = useState(event?.end_time || "");
   const [type, setType] = useState(event?.type || "meeting");
   const [location, setLocation] = useState(event?.location || "");
   const [notes, setNotes] = useState(event?.notes || "");
   const [selected, setSelected] = useState(new Set(event?.members || []));
+  const [preview, setPreview] = useState(event?.image_url || "");
+  const [blob, setBlob] = useState(null);
+  const [ext, setExt] = useState("webp");
+  const [removeImg, setRemoveImg] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+
+  async function onFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const out = await resizeImage(file, 1000);
+      setBlob(out.blob);
+      setExt(out.ext);
+      setPreview(out.url);
+      setRemoveImg(false);
+    } catch (er) {
+      setErr(er.message || "Could not read that image.");
+    }
+  }
 
   function toggle(id) {
     const next = new Set(selected);
@@ -1223,6 +1322,7 @@ function EventEditor({ event, prefillDate, members, onClose, onSaved }) {
         title: title.trim(),
         date,
         time,
+        end_time: endTime,
         type,
         location: location.trim(),
         notes: notes.trim(),
@@ -1235,6 +1335,13 @@ function EventEditor({ event, prefillDate, members, onClose, onSaved }) {
         const { data, error } = await supabase.from("events").insert(payload).select().single();
         if (error) throw error;
         id = data.id;
+      }
+      if (blob) {
+        const url = await uploadImage("refs", "event-" + id, blob, ext);
+        const { error } = await supabase.from("events").update({ image_url: url }).eq("id", id);
+        if (error) throw error;
+      } else if (removeImg) {
+        await supabase.from("events").update({ image_url: "" }).eq("id", id);
       }
       await supabase.from("assignments").delete().eq("event_id", id);
       const rows = [...selected].map((mid) => ({ event_id: id, member_id: mid }));
@@ -1287,14 +1394,18 @@ function EventEditor({ event, prefillDate, members, onClose, onSaved }) {
         <span>Event name</span>
         <input type="text" value={title} placeholder="Homecoming setup" onChange={(e) => setTitle(e.target.value)} autoFocus />
       </label>
+      <label className="fld">
+        <span>Date</span>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      </label>
       <div className="row2">
         <label className="fld">
-          <span>Date</span>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <span>From (optional)</span>
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
         </label>
         <label className="fld">
-          <span>Time (optional)</span>
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          <span>To (optional)</span>
+          <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
         </label>
       </div>
       <label className="fld">
@@ -1319,6 +1430,32 @@ function EventEditor({ event, prefillDate, members, onClose, onSaved }) {
         <span>Location (optional)</span>
         <input type="text" value={location} placeholder="Main quad" onChange={(e) => setLocation(e.target.value)} />
       </label>
+      <div className="photo-row">
+        <div>
+          {preview ? (
+            <img src={preview} alt="" style={{ width: 90, height: 66, objectFit: "cover", borderRadius: 10, border: "1.5px solid var(--line)" }} />
+          ) : (
+            <span className="av lg">📎</span>
+          )}
+        </div>
+        <div className="photo-uploader">
+          <div style={{ fontWeight: 700, color: "var(--ink)", marginBottom: 4 }}>Attachment (optional)</div>
+          <input type="file" accept="image/*" onChange={onFile} style={{ fontSize: 13 }} />
+          {preview && (
+            <button
+              className="btn ghost small"
+              style={{ marginTop: 8 }}
+              onClick={() => {
+                setBlob(null);
+                setPreview("");
+                setRemoveImg(true);
+              }}
+            >
+              Remove attachment
+            </button>
+          )}
+        </div>
+      </div>
       <label className="fld">
         <span>Notes (optional)</span>
         <textarea value={notes} placeholder="What we're doing, what to bring…" onChange={(e) => setNotes(e.target.value)} />
@@ -1357,13 +1494,37 @@ function EventDetail({ event, isAdmin, memberById, onClose, onEdit, onOpenMember
   const t = typeById(event.type);
   const dt = parseDate(event.date);
   const mem = (event.members || []).map(memberById).filter(Boolean);
-  const foot = isAdmin ? (
-    <div className="right">
-      <button className="btn primary" onClick={() => onEdit(event)}>
-        Edit event
+
+  function printEvent() {
+    const when =
+      DOW[dt.getDay()] + ", " + MO[dt.getMonth()] + " " + dt.getDate() + ", " + dt.getFullYear();
+    const rows = mem.length
+      ? "<ul>" + mem.map((m) => "<li>" + esc(m.name) + (m.role ? " — " + esc(m.role) : "") + "</li>").join("") + "</ul>"
+      : '<p class="muted">No one assigned yet.</p>';
+    const html =
+      "<h1>" + esc(event.title) + "</h1>" +
+      '<p class="sub">' + esc(t.label) + " · " + esc(when) +
+      (timeLabel(event) ? " · " + esc(timeLabel(event)) : "") +
+      (event.location ? " · " + esc(event.location) : "") + "</p>" +
+      (event.notes ? "<p>" + esc(event.notes).replace(/\n/g, "<br>") + "</p>" : "") +
+      "<h2>Working this event</h2>" + rows;
+    printDoc(event.title, html);
+  }
+
+  const foot = (
+    <>
+      <button className="btn ghost small" onClick={printEvent}>
+        Print
       </button>
-    </div>
-  ) : null;
+      <div className="right">
+        {isAdmin && (
+          <button className="btn primary" onClick={() => onEdit(event)}>
+            Edit event
+          </button>
+        )}
+      </div>
+    </>
+  );
 
   return (
     <Modal title={event.title} onClose={onClose} foot={foot}>
@@ -1378,11 +1539,12 @@ function EventDetail({ event, isAdmin, memberById, onClose, onEdit, onOpenMember
             {t.label}
           </span>
           <div className="meta" style={{ marginTop: 8 }}>
-            {event.time && <span>🕒 {formatTime(event.time)}</span>}
+            {timeLabel(event) && <span>🕒 {timeLabel(event)}</span>}
             {event.location && <span>📍 {event.location}</span>}
           </div>
         </div>
       </div>
+      {event.image_url && <img className="job-image" src={event.image_url} alt="" />}
       {event.notes && (
         <p style={{ background: "#fff", border: "1.5px solid var(--line)", borderRadius: 12, padding: "12px 14px", fontSize: 14.5, whiteSpace: "pre-wrap" }}>
           {event.notes}
@@ -1497,7 +1659,7 @@ function MemberDetail({ member, me, isAdmin, memberUpcoming, onClose, onEdit, on
                     <span className="type-tag" style={{ background: ty.color }}>
                       {ty.label}
                     </span>
-                    {e.time && <span>{formatTime(e.time)}</span>}
+                    {timeLabel(e) && <span>{timeLabel(e)}</span>}
                   </div>
                 </div>
               </div>
@@ -1674,7 +1836,7 @@ function MemberEditor({ member, me, isAdmin, callAdmin, onClose, onSaved }) {
           <hr className="divider" />
           <div className="check-row">
             <input id="adminToggle" type="checkbox" checked={admin} onChange={(e) => setAdmin(e.target.checked)} />
-            <label htmlFor="adminToggle">Admin — can manage events, jobs, shopping, and the roster</label>
+            <label htmlFor="adminToggle">Admin — can manage events, jobs, donations, and the roster</label>
           </div>
           <button className="btn ghost small" onClick={doReset} disabled={busy}>
             Reset this member&apos;s password
@@ -2029,13 +2191,38 @@ function JobDetail({ job, me, isAdmin, memberById, onClose, onEdit, onAddNote, o
     setBusy(false);
   }
 
-  const foot = isAdmin ? (
-    <div className="right">
-      <button className="btn primary" onClick={() => onEdit(job)}>
-        Edit job
+  function printJob() {
+    const crew = mem.length
+      ? "<ul>" + mem.map((m) => "<li>" + esc(m.name) + (m.role ? " — " + esc(m.role) : "") + "</li>").join("") + "</ul>"
+      : '<p class="muted">No one assigned yet.</p>';
+    const thread = notes.length
+      ? notes.map((n) => {
+          const a = memberById(n.author_member_id);
+          return "<p><strong>" + esc(a ? a.name.split(" ")[0] : "Someone") + ":</strong> " + esc(n.body) + "</p>";
+        }).join("")
+      : "";
+    const html =
+      "<h1>" + esc(job.title) + "</h1><p class=\"sub\">ASB · Class of 2027 — Job</p>" +
+      (typeof job.notes === "string" && job.notes.trim() ? "<p>" + esc(job.notes).replace(/\n/g, "<br>") + "</p>" : "") +
+      "<h2>On this job</h2>" + crew +
+      (thread ? "<h2>Notes</h2>" + thread : "");
+    printDoc(job.title, html);
+  }
+
+  const foot = (
+    <>
+      <button className="btn ghost small" onClick={printJob}>
+        Print
       </button>
-    </div>
-  ) : null;
+      <div className="right">
+        {isAdmin && (
+          <button className="btn primary" onClick={() => onEdit(job)}>
+            Edit job
+          </button>
+        )}
+      </div>
+    </>
+  );
 
   return (
     <Modal title={job.title} onClose={onClose} foot={foot}>
@@ -2114,28 +2301,64 @@ function JobDetail({ job, me, isAdmin, memberById, onClose, onEdit, onAddNote, o
 }
 
 /* ================================================================== */
-/* Shopping item editor                                                */
+/* Donation item editor                                                */
 /* ================================================================== */
-function ShopEditor({ item, onClose, onSaved }) {
+function DonationsEditor({ item, onClose, onSaved }) {
   const [name, setName] = useState(item?.name || "");
   const [qty, setQty] = useState(item?.qty || "");
   const [category, setCategory] = useState(item?.category || "");
   const [note, setNote] = useState(item?.note || "");
+  const [link, setLink] = useState(item?.link || "");
+  const [preview, setPreview] = useState(item?.image_url || "");
+  const [blob, setBlob] = useState(null);
+  const [ext, setExt] = useState("webp");
+  const [removeImg, setRemoveImg] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+
+  async function onFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const out = await resizeImage(file, 900);
+      setBlob(out.blob);
+      setExt(out.ext);
+      setPreview(out.url);
+      setRemoveImg(false);
+    } catch (er) {
+      setErr(er.message || "Could not read that image.");
+    }
+  }
 
   async function save() {
     setErr("");
     if (!name.trim()) return setErr("Add an item name.");
+    let url = link.trim();
+    if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
     setBusy(true);
     try {
-      const payload = { name: name.trim(), qty: qty.trim(), category: category.trim(), note: note.trim() };
+      const payload = {
+        name: name.trim(),
+        qty: qty.trim(),
+        category: category.trim(),
+        note: note.trim(),
+        link: url,
+      };
+      let id = item?.id;
       if (item) {
-        const { error } = await supabase.from("shopping_items").update(payload).eq("id", item.id);
+        const { error } = await supabase.from("shopping_items").update(payload).eq("id", id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("shopping_items").insert(payload);
+        const { data, error } = await supabase.from("shopping_items").insert(payload).select().single();
         if (error) throw error;
+        id = data.id;
+      }
+      if (blob) {
+        const imgUrl = await uploadImage("refs", "donation-" + id, blob, ext);
+        const { error } = await supabase.from("shopping_items").update({ image_url: imgUrl }).eq("id", id);
+        if (error) throw error;
+      } else if (removeImg) {
+        await supabase.from("shopping_items").update({ image_url: "" }).eq("id", id);
       }
       onSaved(item ? "Item updated" : "Item added ✦");
     } catch (e) {
@@ -2196,6 +2419,36 @@ function ShopEditor({ item, onClose, onSaved }) {
         <span>Note (optional)</span>
         <input type="text" value={note} placeholder="Get the small ones" onChange={(e) => setNote(e.target.value)} />
       </label>
+      <label className="fld">
+        <span>Product link (optional)</span>
+        <input type="url" value={link} placeholder="https://…" onChange={(e) => setLink(e.target.value)} />
+      </label>
+      <div className="photo-row">
+        <div>
+          {preview ? (
+            <img src={preview} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 10, border: "1.5px solid var(--line)" }} />
+          ) : (
+            <span className="av lg">🛒</span>
+          )}
+        </div>
+        <div className="photo-uploader">
+          <div style={{ fontWeight: 700, color: "var(--ink)", marginBottom: 4 }}>Reference picture (optional)</div>
+          <input type="file" accept="image/*" onChange={onFile} style={{ fontSize: 13 }} />
+          {preview && (
+            <button
+              className="btn ghost small"
+              style={{ marginTop: 8 }}
+              onClick={() => {
+                setBlob(null);
+                setPreview("");
+                setRemoveImg(true);
+              }}
+            >
+              Remove picture
+            </button>
+          )}
+        </div>
+      </div>
       {err && <div className="err">{err}</div>}
     </Modal>
   );
