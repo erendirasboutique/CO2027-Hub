@@ -450,7 +450,7 @@ export default function Page() {
             <h1 className="wordmark">
               ASB <em>Class of &apos;27</em>
             </h1>
-            <div className="subline">Shared HQ for events, shifts, and the crew that runs them.</div>
+            <div className="subline">Shared Calendar for events, and shifts.</div>
           </div>
           <div className="hero-actions">
             {isAdmin && (
