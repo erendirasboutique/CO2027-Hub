@@ -995,7 +995,7 @@ function RosterView({ members, me, isAdmin, memberUpcoming, onInvite, onOpen }) 
     <div>
       <div className="view-head">
         <h2>
-          <span className="pennant" /> The crew
+          <span className="pennant" /> Roster
         </h2>
         <div className="spacer" />
         {isAdmin && (
