@@ -578,7 +578,7 @@ export default function Page() {
         )}
       </main>
 
-      <footer>Class of 2027 · Jurupa Hills High School · Built for the ASB crew.</footer>
+      <footer>Class of 2027</footer>
 
       {/* modals */}
       {modal?.kind === "eventEditor" && (
