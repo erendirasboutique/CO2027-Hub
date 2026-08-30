@@ -144,7 +144,7 @@ function AuthScreen() {
         <h1>
           ASB <em>Class of &apos;27</em>
         </h1>
-        <div className="subline">Sign in to your crew HQ.</div>
+        <div className="subline">Sign in.</div>
 
         <label className="fld">
           <span>Email</span>
@@ -176,7 +176,7 @@ function AuthScreen() {
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
-        <div className="auth-toggle">Accounts are invite-only — ask your ASB admin for a login.</div>
+        <div className="auth-toggle">Accounts are invite-only.</div>
       </div>
     </div>
   );
