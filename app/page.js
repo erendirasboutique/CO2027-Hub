@@ -141,10 +141,9 @@ function AuthScreen() {
         <div className="logo-badge">
           <img src="/jh-logo.webp" alt="Jurupa Hills High School logo" />
         </div>
-        <h1>
-          ASB <em>Class of &apos;27</em>
-        </h1>
-        <div className="subline">Sign in.</div>
+        <div className="eyebrow">Jurupa Hills · ASB</div>
+        <Ransom size={34} />
+        <div className="subline hand">sign in to the crew hub</div>
 
         <label className="fld">
           <span>Email</span>
@@ -444,19 +443,12 @@ export default function Page() {
             <img src="/jh-logo.webp" alt="Jurupa Hills High School logo" />
           </div>
           <div className="hero-titles">
-            <div className="eyebrow">
-              <span className="pennant" /> Jurupa Hills · Associated Student Body
-            </div>
-            <h1 className="wordmark">
-              ASB <em>Class of &apos;27</em>
-            </h1>
-            <div className="subline">Shared Calendar for events, and shifts.</div>
+            <div className="eyebrow">Jurupa Hills · Associated Student Body</div>
+            <Ransom size={36} />
           </div>
           <div className="hero-actions">
             {isAdmin && (
-              <span className="officer-flag">
-                <span className="pennant" /> Admin
-              </span>
+              <span className="officer-flag">Admin</span>
             )}
             <button
               className="btn ghost small"
@@ -471,7 +463,8 @@ export default function Page() {
         </div>
       </header>
 
-      <nav className="tabs">
+      <div className="sheet-wrap">
+      <nav className="tabs" aria-label="Main">
         <div className="tabs-inner">
           {[
             ["home", "Home"],
@@ -496,10 +489,10 @@ export default function Page() {
         </div>
       </nav>
 
+      <main className="sheet">
       {banner.banner_enabled && (banner.banner_text || isAdmin) && (
         <div className="banner">
           <div className="banner-inner">
-            <span className="mega">📣</span>
             <span className="btext">
               {banner.banner_text || (isAdmin ? "No banner text yet — add one." : "")}
             </span>
@@ -512,7 +505,6 @@ export default function Page() {
         </div>
       )}
 
-      <main>
         {view === "home" && (
           <HomeView
             me={me}
@@ -577,8 +569,9 @@ export default function Page() {
           />
         )}
       </main>
+      </div>
 
-      <footer>Class of 2027</footer>
+      <footer>Class of 2027 · Jurupa Hills</footer>
 
       {/* modals */}
       {modal?.kind === "eventEditor" && (
@@ -669,6 +662,33 @@ export default function Page() {
 }
 
 /* ================================================================== */
+/* Ransom-note wordmark                                                */
+/* ================================================================== */
+const RANSOM_FILLS = [
+  ["#2a2118", "#fbf7ef"], ["#fbf7ef", "#2a2118"], ["#a8372a", "#ffffff"],
+  ["#7c8b6a", "#ffffff"], ["#fff3a8", "#2a2118"],
+];
+const RANSOM_FONTS = ["var(--f-display)", "var(--f-body)", "var(--f-hand)"];
+const RANSOM_ROT = [-4, 3, -2, 5, -3, 2];
+function Ransom({ text = "CLASS OF '27", size = 36, as: Tag = "h1" }) {
+  let i = 0;
+  return (
+    <Tag className="ransom" aria-label={text}>
+      {Array.from(text).map((ch, k) => {
+        if (ch === " ") return <span key={k} className="ransom-gap" aria-hidden="true" />;
+        const [bg, fg] = RANSOM_FILLS[i % RANSOM_FILLS.length];
+        const style = {
+          background: bg, color: fg, fontFamily: RANSOM_FONTS[i % 3],
+          fontSize: size, transform: `rotate(${RANSOM_ROT[i % 6]}deg)`,
+        };
+        i++;
+        return <span key={k} className="ransom-l" style={style} aria-hidden="true">{ch}</span>;
+      })}
+    </Tag>
+  );
+}
+
+/* ================================================================== */
 /* Home                                                                */
 /* ================================================================== */
 function HomeView({ me, isAdmin, myEvents, myJobs, myItems, onOpenEvent, onOpenJob, goShopping }) {
@@ -676,14 +696,12 @@ function HomeView({ me, isAdmin, myEvents, myJobs, myItems, onOpenEvent, onOpenJ
   return (
     <div>
       <div className="greeting">
-        <span className="wave">👋</span>
         <h2>Hi, {me.name.split(" ")[0]}</h2>
+        <div className="hand greet-sub">here&apos;s what&apos;s on you ↓</div>
       </div>
 
       <div className="home-section">
-        <div className="htitle">
-          <span className="pennant" /> Here&apos;s what&apos;s on you
-        </div>
+        <div className="htitle">Your shifts</div>
         {nothing ? (
           <div className="mini-empty">
             You&apos;re all clear right now — nothing assigned yet. Check the Calendar and Jobs tabs to
@@ -721,8 +739,8 @@ function HomeView({ me, isAdmin, myEvents, myJobs, myItems, onOpenEvent, onOpenJ
                       <span className="type-tag" style={{ background: t.color }}>
                         {t.label}
                       </span>
-                      {timeLabel(e) && <span>🕒 {timeLabel(e)}</span>}
-                      {e.location && <span>📍 {e.location}</span>}
+                      {timeLabel(e) && <span>{timeLabel(e)}</span>}
+                      {e.location && <span>@ {e.location}</span>}
                     </div>
                   </div>
                 </div>
@@ -925,8 +943,8 @@ function EventCard({ event, memberById, isAdmin, onOpen, onEdit }) {
           <span className="type-tag" style={{ background: t.color }}>
             {t.label}
           </span>
-          {timeLabel(event) && <span>🕒 {timeLabel(event)}</span>}
-          {event.location && <span>📍 {event.location}</span>}
+          {timeLabel(event) && <span>{timeLabel(event)}</span>}
+          {event.location && <span>@ {event.location}</span>}
         </div>
         {mem.length > 0 && (
           <div className="assigned">
@@ -1191,7 +1209,7 @@ function DonationsView({ shopping, me, isAdmin, memberById, onClaim, onUnclaim, 
                       {it.note && <div className="snote">{it.note}</div>}
                       {it.link && (
                         <a className="slink" href={it.link} target="_blank" rel="noreferrer">
-                          🔗 View product
+                          View product →
                         </a>
                       )}
                     </div>
@@ -1539,8 +1557,8 @@ function EventDetail({ event, isAdmin, memberById, onClose, onEdit, onOpenMember
             {t.label}
           </span>
           <div className="meta" style={{ marginTop: 8 }}>
-            {timeLabel(event) && <span>🕒 {timeLabel(event)}</span>}
-            {event.location && <span>📍 {event.location}</span>}
+            {timeLabel(event) && <span>{timeLabel(event)}</span>}
+            {event.location && <span>@ {event.location}</span>}
           </div>
         </div>
       </div>
